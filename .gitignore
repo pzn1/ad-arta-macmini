@@ -12,3 +12,7 @@ ad-arta.crash.log
 .DS_Store
 build/
 *.bak
+
+# Private notes for Claude sessions, never published
+HANDOVER.md
+code-review.md
