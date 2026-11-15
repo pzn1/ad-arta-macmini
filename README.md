@@ -6,9 +6,12 @@ Local fork of [tranquiloctopus/ad-arta](https://github.com/tranquiloctopus/ad-ar
 trimmed to this one job, running on a Mac mini.
 
 ```
-Siri Remote power button -> Apple TV sleeps -> Frame: Art Mode    (~1.3 s)
-Siri Remote any button   -> Apple TV wakes  -> Frame: HDMI 2      (~6.5 s to picture)
+Siri Remote power button -> Apple TV sleeps -> Frame: Art Mode          (~1.3 s)
+Siri Remote any button   -> Apple TV wakes  -> Frame: Apple TV's HDMI   (~6.5 s to picture)
 ```
+
+The Apple TV can be on any HDMI port: set it with `tv.input_key` (`KEY_HDMI1`
+to `KEY_HDMI4`). The examples here use HDMI 2.
 
 ## Required settings
 
@@ -72,7 +75,7 @@ at startup goes to `ad-arta.crash.log`.
 | `tv.host` | TV IP address |
 | `tv.mac` | TV MAC address, for Wake-on-LAN |
 | `tv.token_file` | Pairing token file (relative to the config file) |
-| `tv.input_key` | Key for the Apple TV's input, sent when leaving Art Mode (`KEY_HDMI2`) |
+| `tv.input_key` | Key for the Apple TV's HDMI port, sent when leaving Art Mode (e.g. `KEY_HDMI2`). Empty: the Frame returns to its last used input |
 | `appletv.identifier` | Apple TV identifier from `atvremote scan` |
 | `appletv.host` | Apple TV IP, skips discovery |
 
@@ -101,7 +104,7 @@ Choices, from measurements (Nov 2026):
   Any problem falls back to fresh connections.
 - **No fixed sleeps.** samsungtvws waits 1 s after every command by default;
   here every step waits for the TV's answer instead.
-- **Wake order.** HDMI 2 is sent before Art Mode off, so the HDMI handshake
+- **Wake order.** The input key is sent before Art Mode off, so the HDMI handshake
   starts during the Frame's transition. The remaining ~5 s of black (or a
   short "No signal") is the Apple TV waking up.
 - **Fallbacks.** TV fully off: Wake-on-LAN, but only once Companion has
