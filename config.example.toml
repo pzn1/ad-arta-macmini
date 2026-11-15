@@ -1,0 +1,19 @@
+# Copy to config.toml and fill in.
+
+[tv]
+# IP address of the Frame TV. Give it a DHCP reservation in your router.
+host = "192.168.1.50"
+# MAC address of the TV (Settings > Support > About This TV, or your router).
+# Used to wake the TV over the network if it is fully off.
+mac = "AA:BB:CC:DD:EE:FF"
+# Where the pairing token is stored after you press "Allow" on the TV.
+token_file = "tv-token.txt"
+# Remote key for the Apple TV's input, sent when leaving Art Mode, e.g.
+# "KEY_HDMI2". Empty: the Frame returns to its last used input.
+input_key = "KEY_HDMI2"
+
+[appletv]
+# Apple TV identifier, from `atvremote scan`. Empty: the first Apple TV found.
+identifier = ""
+# Fixed IP: skips multicast discovery (faster, more reliable).
+host = ""

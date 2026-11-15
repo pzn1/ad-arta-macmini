@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchDaemon: starts ad-arta at boot, before (and without) any login.
+  Runs as your user so it reads the same config, TV token and Apple TV
+  pairing (~/.pyatv.conf) as before. install-daemon.sh replaces YOUR_USER
+  with the user who runs it. Install: see README "Service".
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.ad-arta</string>
+    <key>UserName</key>
+    <string>YOUR_USER</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USER/ad-arta/.venv/bin/ad-arta</string>
+        <string>--log-file</string>
+        <string>/Users/YOUR_USER/ad-arta/ad-arta.log</string>
+        <string>run</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USER/ad-arta</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/YOUR_USER</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <!-- At boot the network may not be up yet; don't respawn faster than this. -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <!-- ad-arta writes and rotates ad-arta.log itself; this only catches a crash at startup. -->
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USER/ad-arta/ad-arta.crash.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USER/ad-arta/ad-arta.crash.log</string>
+</dict>
+</plist>

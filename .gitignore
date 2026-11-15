@@ -1,0 +1,14 @@
+__pycache__/
+*.egg-info/
+.venv/
+venv/
+config.toml
+*.token
+tv-token.txt
+.pytest_cache/
+ad-arta.log
+ad-arta.log.1
+ad-arta.crash.log
+.DS_Store
+build/
+*.bak

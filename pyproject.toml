@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ad-arta"
+version = "0.1.0"
+description = "Put a Samsung The Frame TV into Art Mode when the Apple TV sleeps, and back to HDMI when it wakes."
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.12"
+dependencies = [
+    # Pinned: appletv.py and frame.py rely on internals of these two.
+    "pyatv==0.18.*",
+    # srptools 2.0 changed its API and breaks pyatv 0.18 Apple TV pairing.
+    "srptools<2",
+    "samsungtvws==3.0.*",
+    "wakeonlan>=3.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+ad-arta = "ad_arta.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
