@@ -336,8 +336,7 @@ class FrameTV:
             send_magic_packet(self.cfg.mac)
             time.sleep(2)
             if self.power_state() == "on":
-                time.sleep(3)  # let the art service start
-                return True
+                return True  # set_art_mode(just_woke=True) waits for the art service
         raise RuntimeError("TV did not wake up")
 
     def _press_power(self) -> None:
@@ -378,14 +377,17 @@ class FrameTV:
     def set_art_mode(self, on: bool, just_woke: bool = False) -> None:
         """Set Art Mode over a fresh connection, waking the art service if needed."""
         wanted = "on" if on else "off"
-        art = self._art()
+        art = None
         try:
             if just_woke:
-                # Right after waking the art service joins late; wait for it.
-                art.open(ready_wait=READY_WAIT)
-            else:
+                # Right after turning on, the TV may refuse connections for a
+                # moment and the art service joins late: keep reconnecting.
+                art = self._open_art_when_ready(READY_WAIT)
+            if art is None:
+                art = self._art()
                 # Missing altogether means the TV stopped it: press at once.
-                art.open(ready_wait=READY_WAIT_BEFORE_WAKE, wait_if_absent=0)
+                # (After waking, the wait above already gave it its time.)
+                art.open(ready_wait=0 if just_woke else READY_WAIT_BEFORE_WAKE, wait_if_absent=0)
             if not art.ready and not on:
                 # Art Mode needs the art service, so with the service stopped
                 # the TV isn't showing art. Pressing power here would switch

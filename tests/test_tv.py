@@ -117,6 +117,7 @@ def tv_with_fake_art(tmp_path, monkeypatch, **art_kw):
     art.unreachable_opens = unreachable
     monkeypatch.setattr(tv, "_art", lambda: art)
     monkeypatch.setattr(tv_mod, "WAKE_WAIT", 0.3)
+    monkeypatch.setattr(tv_mod, "READY_WAIT", 0.3)
     monkeypatch.setattr(tv_mod.time, "sleep", lambda s: None)
     monkeypatch.setattr(tv, "_press_power", press)
     return tv, art
@@ -199,10 +200,20 @@ def test_set_art_mode_unreachable_tv_gives_friendly_error(tmp_path, monkeypatch)
     assert tv.power_presses == 0
 
 
-def test_set_art_mode_waits_longer_right_after_waking(tmp_path, monkeypatch):
-    tv, art = tv_with_fake_art(tmp_path, monkeypatch, ready=True, mode="off")
-    tv.set_art_mode(True, just_woke=True)
-    assert art.opened_with == (tv_mod.READY_WAIT, None)
+def test_set_art_mode_waits_for_the_art_service_right_after_waking(tmp_path, monkeypatch):
+    tv, art = tv_with_fake_art(tmp_path, monkeypatch, ready=True, mode="on")
+    tv.set_art_mode(False, just_woke=True)
+    ready_wait, wait_if_absent = art.opened_with
+    assert ready_wait > 0 and wait_if_absent is None  # waits for ready, even if absent
+    assert art.set_calls == ["off"]
+
+
+def test_set_art_mode_reconnects_while_tv_starts_up(tmp_path, monkeypatch):
+    # Right after Wake-on-LAN the TV refuses connections for a moment.
+    tv, art = tv_with_fake_art(tmp_path, monkeypatch, mode="on", unreachable_opens=2)
+    tv.set_art_mode(False, just_woke=True)
+    assert art.opens == 3
+    assert art.set_calls == ["off"] and tv.power_presses == 0
 
 
 def test_go_to_art_passes_wake_state(tmp_path, monkeypatch):
