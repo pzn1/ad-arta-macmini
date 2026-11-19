@@ -109,7 +109,7 @@ class FakeArt(FakeClient):
             raise self.fail
         return self.current
 
-    def set_artmode_confirmed(self, wanted):
+    def set_artmode_confirmed(self, wanted, timeout=None):
         self.set_calls.append(wanted)
         self.current = wanted
 
@@ -202,7 +202,7 @@ def test_input_key_sent_before_leaving_art_mode(tmp_path):
     tv = make_tv(tmp_path)
     calls = []
     art, remote = FakeArt("on"), FakeRemote()
-    art.set_artmode_confirmed = lambda wanted: calls.append(f"art {wanted}")
+    art.set_artmode_confirmed = lambda wanted, timeout=None: calls.append(f"art {wanted}")
     remote.send_key = lambda key: calls.append(key)
     tv._warm_art.client, tv._warm_remote.client = art, remote
     tv.go_to_tv()
@@ -344,3 +344,31 @@ def test_input_key_is_sent_again_after_waking_the_tv(tmp_path, monkeypatch):
     monkeypatch.setattr(tv, "set_art_mode", lambda on, just_woke=False: None)
     tv.go_to_tv()
     assert len(remotes) == 2 and remotes[1].keys == ["KEY_HDMI2"]
+
+
+def test_warm_change_gives_up_quickly(tmp_path):
+    tv = make_tv(tmp_path, input_key="")
+    art = FakeArt("on")
+    seen = []
+    art.set_artmode_confirmed = lambda wanted, timeout=None: seen.append(timeout)
+    tv._warm_art.client = art
+    tv.go_to_tv()
+    assert seen == [tv_mod.WARM_CONFIRM_TIMEOUT]
+
+
+def test_unconfirmed_wake_leaves_tv_in_standby_alone(tmp_path, monkeypatch):
+    # A Frame in standby answers get_artmode on the warm connection but never
+    # confirms the change. An unconfirmed wake must not then Wake-on-LAN it.
+    tv = make_tv(tmp_path, input_key="")
+    art = FakeArt("on")
+
+    def no_confirm(wanted, timeout=None):
+        raise tv_mod.exceptions.ConnectionFailure("Websocket Time out")
+
+    art.set_artmode_confirmed = no_confirm
+    tv._warm_art.client = art
+    monkeypatch.setattr(tv, "power_state", lambda timeout=8: "standby")
+    monkeypatch.setattr(tv, "ensure_on", no_fresh)
+    monkeypatch.setattr(tv, "set_art_mode", no_fresh)
+    assert tv.go_to_tv(wake=False) is False
+    assert tv._warm_art.client is None  # dropped

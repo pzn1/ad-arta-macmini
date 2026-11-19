@@ -35,11 +35,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 READY_WAIT_BEFORE_WAKE = 8.0
 WAKE_WAIT = 20.0
 REMOTE_WAKE_TIMEOUT = 20.0
-WOL_TIMEOUT = 30.0            # keep sending Wake-on-LAN this long
+WOL_TIMEOUT = 60.0            # keep sending Wake-on-LAN this long (one start took >30 s)
 
 # Kept-open connections.
 KEEP_EVERY = 2.0              # keeper loop: answer pings, reopen dead ones
 WARM_REPLY_TIMEOUT = 0.5      # get_artmode on a warm connection (normally ~20 ms)
+# Confirmation of a change on a warm connection (seen: off ~0.1 s, on <1.6 s).
+# A Frame in standby still answers get_artmode but never confirms: give up
+# quickly and take the fresh path.
+WARM_CONFIRM_TIMEOUT = 3.0
 WARM_READY_WAIT = 2.0         # opening one: don't hold up the keeper for a late art service
 REOPEN_BACKOFF = (5.0, 60.0)  # first and max wait after a failed open
 # While a connection is down, the keeper checks the TV's power (REST, ~0.1 s)
@@ -157,6 +161,8 @@ class FrameTV:
             sender = self._start_key_sender()
         try:
             if not self._set_art_mode_warm("off"):
+                if not wake and self.power_state() != "on":
+                    return False  # the warm connection was to a TV in standby
                 woke = self.ensure_on()
                 if woke and sender is not None:
                     sender.join()  # that key went to a TV that was off: again
@@ -243,7 +249,7 @@ class FrameTV:
                 art.connection.settimeout(WARM_REPLY_TIMEOUT)
                 current = art.get_artmode()
                 art.connection.settimeout(art.timeout)
-                self._apply(art, current, wanted)
+                self._apply(art, current, wanted, timeout=WARM_CONFIRM_TIMEOUT)
                 return True
             except Exception as err:  # noqa: BLE001 - any problem: fresh path
                 warm.drop(f"{type(err).__name__}: {err}")
@@ -414,12 +420,12 @@ class FrameTV:
                 art.close()
 
     @staticmethod
-    def _apply(art: FrameArt, current: str, wanted: str) -> None:
+    def _apply(art: FrameArt, current: str, wanted: str, timeout: float | None = None) -> None:
         if current == wanted:
             log.info("Art Mode already %s", wanted)
             return
         log.info("Turning Art Mode %s", wanted)
-        art.set_artmode_confirmed(wanted)
+        art.set_artmode_confirmed(wanted, timeout)
 
     # --- pairing -------------------------------------------------------------
 

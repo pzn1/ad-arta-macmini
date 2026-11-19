@@ -181,7 +181,7 @@ class FrameArt(SamsungTVArt):
                 except Exception:  # connection may have been closed above
                     pass
 
-    def set_artmode_confirmed(self, wanted: str) -> None:
+    def set_artmode_confirmed(self, wanted: str, timeout: float | None = None) -> None:
         """Set Art Mode and wait until the TV confirms it.
 
         Turning Art Mode on, the Frame sends no reply carrying our request id,
@@ -196,7 +196,7 @@ class FrameArt(SamsungTVArt):
         )
         conn = self.connection
         old_timeout = conn.gettimeout()
-        deadline = time.monotonic() + (self.timeout or READY_WAIT)
+        deadline = time.monotonic() + (timeout or self.timeout or READY_WAIT)
         try:
             while True:
                 remaining = deadline - time.monotonic()

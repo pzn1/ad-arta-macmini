@@ -92,11 +92,11 @@ at startup goes to `ad-arta.crash.log`.
 Choices, from measurements (Nov 2026):
 
 - **Two Apple TV signals.** MRP (over the AirPlay pairing) reports a wake
-  ~0.8 s after the press; Companion only 4-15 s later, but it is the
-  trustworthy one and reports sleep at once. Sleep uses Companion; wake acts
-  on MRP at once, and is undone only if Companion reports nothing within
-  60 s. Undoing a real wake is costly: the Frame entering Art Mode puts the
-  Apple TV to sleep over HDMI-CEC.
+  ~0.8 s after the press; Companion usually 4-15 s later (after a long sleep
+  up to 111 s seen), but it is the trustworthy one and reports sleep at once.
+  Sleep uses Companion; wake acts on MRP at once, and is undone only if
+  Companion reports nothing within 5 minutes. Undoing a real wake is costly:
+  the Frame entering Art Mode puts the Apple TV to sleep over HDMI-CEC.
 - **Kept-open connections.** Opening a TLS websocket to the Frame takes
   ~1.4 s, so one art and one remote connection stay open; an action takes
   ~0.1 s. When the Frame turns itself off at night they drop; they reopen as

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 import pyatv
 from pyatv.const import PowerState, Protocol
@@ -16,15 +17,23 @@ from .config import AppleTVConfig
 log = logging.getLogger(__name__)
 
 
-# Companion confirms a real wake 4-15 s after MRP (measured; 15.0 s once).
-# If it hasn't within this many seconds, the MRP "On" was false: go back to
-# Art Mode. Keep this generous: undoing a real wake is costly, because the
-# Frame entering Art Mode puts the awake Apple TV to sleep over HDMI-CEC.
-CONFIRM_WITHIN = 60.0
+# Companion usually confirms a real wake 4-15 s after MRP, but after a long
+# sleep it took 32 s and once 111 s. If it hasn't within this many seconds,
+# the MRP "On" is taken as false: go back to Art Mode. Keep this generous:
+# no false MRP "On" has been seen, and undoing a real wake is costly, because
+# the Frame entering Art Mode puts the waking Apple TV to sleep over HDMI-CEC.
+CONFIRM_WITHIN = 300.0
 
 # A connection that lasted this long had worked: when it drops, reconnect at
 # once instead of after the backoff.
 STABLE_AFTER = 30.0
+
+
+def _ago(since: float | None) -> str:
+    if since is None:
+        return "?"
+    s = time.monotonic() - since
+    return f"{s / 60:.0f} min" if s >= 120 else f"{s:.1f} s"
 
 
 class _EarlyWake(PowerListener):
@@ -42,16 +51,26 @@ class _EarlyWake(PowerListener):
     def __init__(self, watcher: "AppleTVWatcher") -> None:
         self._watcher = watcher
         self._task: asyncio.Task | None = None
+        self._woke_at: float | None = None
 
     def powerstate_update(self, old_state: PowerState, new_state: PowerState) -> None:
         w = self._watcher
         was_on = w.bridge.appletv_on
+        detail = w.wake_context() if new_state == PowerState.On and was_on is False else ""
+        log.info("Apple TV MRP: %s -> %s%s", old_state.name, new_state.name, detail)
         if new_state != PowerState.On or was_on is True:
             return
         w._report(PowerState.On, confirmed=False)
         self.cancel()
         if was_on is False:  # None: the bridge only recorded it, nothing to undo
+            self._woke_at = time.monotonic()
             self._task = asyncio.ensure_future(self._undo_if_unconfirmed())
+
+    def pending_since(self) -> float | None:
+        """When the wake still waiting for Companion was seen, else None."""
+        if self._task is not None and not self._task.done():
+            return self._woke_at
+        return None
 
     def cancel(self) -> None:
         """Drop the pending wake check: Companion spoke, or the connection is gone."""
@@ -74,10 +93,18 @@ class AppleTVWatcher(PowerListener, DeviceListener):
         self.bridge = bridge
         self._disconnected = asyncio.Event()
         self._early_wake: _EarlyWake | None = None
+        self._connected_at: float | None = None
+        self._off_since: float | None = None  # last time the bridge saw it sleep
+
+    def wake_context(self) -> str:
+        return f" (asleep {_ago(self._off_since)}, connected {_ago(self._connected_at)})"
 
     # pyatv callbacks
     def powerstate_update(self, old_state: PowerState, new_state: PowerState) -> None:
         # pyatv's facade only relays the main power instance: Companion.
+        pending = self._early_wake.pending_since() if self._early_wake is not None else None
+        log.info("Apple TV Companion: %s -> %s%s", old_state.name, new_state.name,
+                 f" ({_ago(pending)} after MRP)" if pending is not None else "")
         if self._early_wake is not None:
             self._early_wake.cancel()
         self._report(new_state)
@@ -93,6 +120,8 @@ class AppleTVWatcher(PowerListener, DeviceListener):
         if state == PowerState.On:
             self.bridge.appletv_power_changed(True, confirmed)
         elif state == PowerState.Off:
+            if self.bridge.appletv_on is not False:
+                self._off_since = time.monotonic()
             self.bridge.appletv_power_changed(False)
 
     async def _find(self, loop, storage):
@@ -125,6 +154,7 @@ class AppleTVWatcher(PowerListener, DeviceListener):
                 log.info("Connected to %s", conf.name)
                 backoff = 5
                 connected = loop.time()
+                self._connected_at = time.monotonic()
                 self._disconnected.clear()
                 atv.listener = self
                 atv.power.listener = self

@@ -17,6 +17,9 @@ class FakeWatcher:
         self.bridge = SimpleNamespace(appletv_on=on)
         self.reports = []
 
+    def wake_context(self):
+        return ""
+
     def _report(self, state, confirmed=True):
         self.reports.append(state)
         self.bridge.appletv_on = state == ON
@@ -214,3 +217,21 @@ def test_wake_with_unknown_state_arms_no_check():
         return w.reports
 
     assert asyncio.run(run()) == [ON]
+
+
+def test_signals_are_logged_with_the_companion_delay(caplog):
+    caplog.set_level("INFO", logger="ad_arta.appletv")
+
+    async def run():
+        w = appletv.AppleTVWatcher(appletv.AppleTVConfig(), SimpleNamespace(appletv_on=False))
+        w.bridge = FakeWatcher().bridge
+        w._report = lambda state, confirmed=True: None
+        w._early_wake = _EarlyWake(w)
+        w._early_wake.powerstate_update(OFF, ON)
+        await asyncio.sleep(0.01)
+        w.powerstate_update(OFF, ON)
+
+    asyncio.run(run())
+    lines = [r.getMessage() for r in caplog.records]
+    assert lines[0].startswith("Apple TV MRP: Off -> On (asleep ")
+    assert lines[1].startswith("Apple TV Companion: Off -> On (") and "after MRP" in lines[1]

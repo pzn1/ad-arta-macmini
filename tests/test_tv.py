@@ -98,7 +98,7 @@ class FakeArt:
             raise exceptions.ConnectionFailure("Websocket Time out")
         return self.mode
 
-    def set_artmode_confirmed(self, wanted):
+    def set_artmode_confirmed(self, wanted, timeout=None):
         self.set_calls.append(wanted)
 
     def close(self):
@@ -255,7 +255,7 @@ def test_error_reply_from_tv_gives_friendly_error(tmp_path, monkeypatch):
 
     tv, art = tv_with_fake_art(tmp_path, monkeypatch, mode="off")
 
-    def refuse(wanted):
+    def refuse(wanted, timeout=None):
         raise exceptions.ResponseError("error number -1")
 
     art.set_artmode_confirmed = refuse
